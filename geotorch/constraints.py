@@ -15,6 +15,8 @@ from .psd import PSD
 from .pssd import PSSD
 from .pssdlowrank import PSSDLowRank
 from .pssdfixedrank import PSSDFixedRank
+from .pssdfixedranktrace import PSSDFixedRankTrace
+from .hurwitz import Hurwitz
 
 
 def _register_manifold(module, tensor_name, cls, *args):
@@ -550,3 +552,81 @@ def positive_semidefinite_fixed_rank(
             a custom callable. Default: ``"expm"``
     """
     return _register_manifold(module, tensor_name, PSSDFixedRank, rank, f, triv)
+
+
+def positive_semidefinite_fixed_rank_fixed_trace(
+    module, tensor_name, trace, rank, f="softmax", triv="expm"
+):
+    r"""Adds a positive definiteness constraint to the tensor ``module.tensor_name``.
+    and the constrained tensor has a fixed trace of trace.
+
+    When accessing ``module.tensor_name``, the module will return the
+    parametrized version :math:`X` which will be positive semi-definite of rank
+    r and with a fixed trace.
+
+    If the tensor has more than two dimensions, the parametrization will be
+    applied to the last two dimensions.
+
+    Examples::
+
+        >>> layer = nn.Linear(20, 20)
+        >>> geotorch.positive_semidefinite_fixed_rank_fixed_trace(layer, "weight", 3, 5)
+        >>> L = torch.linalg.eigvalsh(layer.weight)
+        >>> (L.sum() == 3).all()
+        tensor(True)
+        >>> L[L.abs() < 1e-7] = 0.0  # Round errors
+        >>> (L >= 0.0).all()
+        tensor(True)
+        >>> list(L > 0.0).count(True)
+        5
+
+    Args:
+        module (nn.Module): module on which to register the parametrization
+        tensor_name (string): name of the parameter, buffer, or parametrization
+            on which the parametrization will be applied
+        trace (float): trace of the matrix
+        rank (int): Rank of the matrix.
+            It has to be less than the minimum of the two dimensions of the
+            matrix
+        f (str or callable or pair of callables): Optional. Either:
+
+            - ``"softmax"``
+
+            - A callable that maps real numbers to the interval :math:`(0, \infty)`
+
+            - A pair of callables such that the first maps the real numbers to
+              :math:`(0, \infty)` and the second is a (right) inverse of the first
+
+            Default: ``"softplus"``
+        triv (str or callable): Optional.
+            A map that maps skew-symmetric matrices onto the orthogonal
+            matrices surjectively. This is used to optimize the :math:`Q` in the
+            eigenvalue decomposition. It can be one of ``["expm", "cayley"]`` or
+            a custom callable. Default: ``"expm"``
+    """
+    return _register_manifold(module, tensor_name, PSSDFixedRankTrace, rank, trace, f, triv)
+
+
+def hurwitz(module, tensor_name="weight", alpha=1.0):
+    r"""Adds an alpha_stability parametrization to the matrix ``module.tensor_name``.
+
+    When accessing ``module.tensor_name``, the module will return the parametrized
+    version :math:`X` so that :math:`\real{\lambda{X}} \leq -\alpha`.
+
+    If the tensor has more than two dimensions, the parametrization will be
+    applied to the last two dimensions.
+
+    Examples::
+
+        >>> layer = nn.Linear(30, 30)
+        >>> alpha_stable(layer, "weight", alpha=2)
+        >>> torch.all(torch.linalg.eigvals(layer.weight)<=-layer.alpha)
+        True
+
+    Args:
+        module (nn.Module): module on which to register the parametrization
+        tensor_name (string): name of the parameter, buffer, or parametrization
+            on which the parametrization will be applied. Default: ``"weight"``
+        alpha (float): Bound on the decay rate and eigevenalues of matrix A
+    """
+    return _register_manifold(module, tensor_name, Hurwitz, alpha)
