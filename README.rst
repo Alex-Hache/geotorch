@@ -136,7 +136,7 @@ You may try GeoTorch installing it as
 
 .. code:: bash
 
-    pip install git+https://github.com/Lezcano/geotorch/
+    pip install git+https://github.com/Alex-Hache/geotorch/
 
 GeoTorch is tested in Linux, Mac, and Windows environments for Python >= 3.6 and supports PyTorch >= 1.9
 
